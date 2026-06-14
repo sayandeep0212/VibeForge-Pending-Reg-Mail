@@ -20,19 +20,26 @@ export async function POST(request: Request) {
 
     const { emailTemplateHtml } = await import('@/lib/emailTemplate');
 
-    // We will create the actual email template later.
-    // For now, using a placeholder subject and text.
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER, // Send to self
-      bcc: recipients.join(', '), // BCC all recipients to protect privacy
-      subject: 'Action Required: Complete Your VibeForge 1.0 Registration',
-      text: 'Hello,\n\nYou have successfully created your profile for VibeForge 1.0, but your registration is still incomplete. Please complete your registration by registering your team.\n\nThank you!',
-      html: emailTemplateHtml,
-    };
+    // Send email to each recipient individually to ensure they are in the "To" field
+    let sentCount = 0;
+    for (const recipient of recipients) {
+      try {
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: recipient,
+          subject: 'Action Required: Complete Your VibeForge 1.0 Registration',
+          text: 'Hello,\n\nYou have successfully created your profile for VibeForge 1.0, but your registration is still incomplete. Please complete your registration by registering your team.\n\nThank you!',
+          html: emailTemplateHtml,
+        };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Message sent: %s', info.messageId);
+        await transporter.sendMail(mailOptions);
+        sentCount++;
+      } catch (err) {
+        console.error(`Failed to send email to ${recipient}:`, err);
+      }
+    }
+
+    console.log(`Successfully sent ${sentCount} out of ${recipients.length} emails.`);
 
     return NextResponse.json({ success: true, message: 'Emails sent successfully' });
   } catch (error) {
