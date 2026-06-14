@@ -160,7 +160,7 @@ export const emailTemplateHtml = `<!DOCTYPE html>
                   <td style="padding:18px; font-size:15px; line-height:1.8; color:#dcdcdc;">
                     <strong style="color:#ffd900;">Event:</strong> VibeForge 1.0<br />
                     <strong style="color:#ffd900;">Date:</strong> 22nd August<br />
-                    <strong style="color:#ffd900;">Time:</strong> 10:00 AM<br />
+                    <strong style="color:#ffd900;">Time:</strong> 8:00 AM<br />
                     <strong style="color:#ffd900;">Venue:</strong> Adamas Convention Centre
                   </td>
                 </tr>

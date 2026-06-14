@@ -32,6 +32,9 @@ export default function Home() {
   const [isSendingMail, setIsSendingMail] = useState(false);
   const [mailSent, setMailSent] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [sentCount, setSentCount] = useState(0);
+  const [totalToSend, setTotalToSend] = useState(0);
+  const [sendSummary, setSendSummary] = useState<{sent: number, total: number} | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "participants" | "registrations") => {
     const file = e.target.files?.[0];
@@ -115,8 +118,12 @@ export default function Home() {
 
     setIsSendingMail(true);
     setError(null);
+    setSentCount(0);
+    setSendSummary(null);
+    setMailSent(false);
 
     const emails = results.map((r) => r.Email).filter(Boolean);
+    setTotalToSend(emails.length);
 
     try {
       const response = await fetch('/api/send-email', {
@@ -127,15 +134,52 @@ export default function Home() {
         body: JSON.stringify({ recipients: emails }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to send emails');
+        let errorMessage = 'Failed to send emails';
+        try {
+          const data = await response.json();
+          errorMessage = data.error || errorMessage;
+        } catch (e) {}
+        throw new Error(errorMessage);
       }
 
-      setMailSent(true);
-      setShowPreview(false);
-      setTimeout(() => setMailSent(false), 5000);
+      if (!response.body) throw new Error("No response body");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                
+                if (data.error && typeof data.error === 'string') {
+                   throw new Error(data.error);
+                } else if (data.done) {
+                   setSendSummary({ sent: data.sentCount, total: data.total });
+                   setMailSent(true);
+                   setTimeout(() => setMailSent(false), 5000);
+                } else if (data.progress !== undefined) {
+                   setSentCount(data.progress);
+                }
+              } catch (e) {
+                 if (e instanceof Error && e.message === 'Failed to setup email transport') {
+                   throw e;
+                 }
+                 // Ignore standard JSON parse errors for incomplete chunks
+              }
+            }
+          }
+        }
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'An error occurred while sending emails.');
@@ -306,39 +350,100 @@ export default function Home() {
             <div className="flex items-center justify-between p-6 border-b border-slate-800">
               <h2 className="text-xl font-bold text-white">Email Preview</h2>
               <button 
-                onClick={() => setShowPreview(false)}
-                className="p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                onClick={() => { if (!isSendingMail) setShowPreview(false) }}
+                disabled={isSendingMail}
+                className="p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <div className="flex-1 overflow-hidden bg-white p-0">
-              <iframe 
-                srcDoc={emailTemplateHtml}
-                title="Email Preview"
-                className="w-full h-full min-h-[500px] border-none"
-                sandbox="allow-same-origin"
-              />
+            <div className="flex-1 overflow-hidden bg-white p-0 relative min-h-[500px] flex flex-col">
+              {isSendingMail || sendSummary ? (
+                <div className="flex-1 bg-slate-900 z-10 flex flex-col items-center justify-center p-8">
+                  {sendSummary ? (
+                    <div className="text-center space-y-4 animate-in fade-in zoom-in duration-500">
+                      <div className="w-24 h-24 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <CheckCircle2 className="w-12 h-12" />
+                      </div>
+                      <h3 className="text-3xl font-bold text-white">Sending Complete!</h3>
+                      <p className="text-slate-400 text-lg">Successfully sent <span className="text-emerald-400 font-bold">{sendSummary.sent}</span> out of <span className="text-white font-bold">{sendSummary.total}</span> emails.</p>
+                      <div className="pt-8">
+                        <button 
+                          onClick={() => {
+                            setShowPreview(false);
+                            setSendSummary(null);
+                          }}
+                          className="px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-colors"
+                        >
+                          Close Window
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full max-w-md space-y-8 text-center animate-in fade-in zoom-in duration-300">
+                      <div className="space-y-2">
+                        <h3 className="text-2xl font-bold text-white">Sending Emails...</h3>
+                        <p className="text-slate-400">Please do not close this window.</p>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-sm font-medium text-slate-300 px-1">
+                          <span>Progress</span>
+                          <span>{sentCount} / {totalToSend}</span>
+                        </div>
+                        <div className="w-full h-4 bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                          <div 
+                            className="h-full bg-indigo-500 transition-all duration-300 ease-out relative overflow-hidden"
+                            style={{ width: `${totalToSend > 0 ? (sentCount / totalToSend) * 100 : 0}%` }}
+                          >
+                            <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                          </div>
+                        </div>
+                        <p className="text-sm text-slate-500 font-medium pt-2">
+                          {Math.round(totalToSend > 0 ? (sentCount / totalToSend) * 100 : 0)}% Complete
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <iframe 
+                  srcDoc={emailTemplateHtml}
+                  title="Email Preview"
+                  className="w-full h-full min-h-[500px] border-none"
+                  sandbox="allow-same-origin"
+                />
+              )}
             </div>
 
-            <div className="p-6 border-t border-slate-800 bg-slate-900/50 flex justify-end gap-4">
-              <button
-                onClick={() => setShowPreview(false)}
-                disabled={isSendingMail}
-                className="px-6 py-3 rounded-xl font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSendEmails}
-                disabled={isSendingMail}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-indigo-600 text-white hover:bg-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSendingMail ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                {isSendingMail ? "Sending..." : "Confirm & Send Mail"}
-              </button>
-            </div>
+            {!(isSendingMail || sendSummary) && (
+              <div className="p-6 border-t border-slate-800 bg-slate-900/50 flex flex-col gap-4">
+                {error && (
+                  <div className="flex items-center gap-2 text-rose-400 bg-rose-400/10 px-4 py-3 rounded-xl">
+                    <AlertCircle className="w-5 h-5 shrink-0" />
+                    <p>{error}</p>
+                  </div>
+                )}
+                <div className="flex justify-end gap-4">
+                  <button
+                    onClick={() => setShowPreview(false)}
+                    disabled={isSendingMail}
+                    className="px-6 py-3 rounded-xl font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendEmails}
+                    disabled={isSendingMail}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-indigo-600 text-white hover:bg-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSendingMail ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                    {isSendingMail ? "Sending..." : "Confirm & Send Mail"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

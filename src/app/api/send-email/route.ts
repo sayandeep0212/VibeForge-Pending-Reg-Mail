@@ -9,41 +9,75 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No recipients provided' }, { status: 400 });
     }
 
-    // Create a transporter using Gmail settings
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+    const { emailTemplateHtml } = await import('@/lib/emailTemplate');
+
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Create a transporter using Gmail settings
+          const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS,
+            },
+          });
+
+          let sentCount = 0;
+          for (const recipient of recipients) {
+            try {
+              const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: recipient,
+                subject: 'Action Required: Complete Your VibeForge 1.0 Registration',
+                text: 'Hello,\n\nYou have successfully created your profile for VibeForge 1.0, but your registration is still incomplete. Please complete your registration by registering your team.\n\nThank you!',
+                html: emailTemplateHtml,
+              };
+
+              await transporter.sendMail(mailOptions);
+              sentCount++;
+              
+              const progressData = JSON.stringify({ 
+                progress: sentCount, 
+                total: recipients.length,
+                email: recipient
+              });
+              controller.enqueue(encoder.encode(`data: ${progressData}\n\n`));
+            } catch (err) {
+              console.error(`Failed to send email to ${recipient}:`, err);
+              // Report progress even if sending failed for this recipient, so the total matches
+              const errorData = JSON.stringify({ 
+                progress: sentCount, // kept at successful sends
+                total: recipients.length,
+                email: recipient,
+                error: true
+              });
+              controller.enqueue(encoder.encode(`data: ${errorData}\n\n`));
+            }
+          }
+
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, sentCount, total: recipients.length })}\n\n`));
+          controller.close();
+        } catch (error) {
+          console.error('Error in stream:', error);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Failed to setup email transport' })}\n\n`));
+          controller.close();
+        }
+      }
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
       },
     });
 
-    const { emailTemplateHtml } = await import('@/lib/emailTemplate');
-
-    // Send email to each recipient individually to ensure they are in the "To" field
-    let sentCount = 0;
-    for (const recipient of recipients) {
-      try {
-        const mailOptions = {
-          from: process.env.EMAIL_USER,
-          to: recipient,
-          subject: 'Action Required: Complete Your VibeForge 1.0 Registration',
-          text: 'Hello,\n\nYou have successfully created your profile for VibeForge 1.0, but your registration is still incomplete. Please complete your registration by registering your team.\n\nThank you!',
-          html: emailTemplateHtml,
-        };
-
-        await transporter.sendMail(mailOptions);
-        sentCount++;
-      } catch (err) {
-        console.error(`Failed to send email to ${recipient}:`, err);
-      }
-    }
-
-    console.log(`Successfully sent ${sentCount} out of ${recipients.length} emails.`);
-
-    return NextResponse.json({ success: true, message: 'Emails sent successfully' });
   } catch (error) {
     console.error('Error sending emails:', error);
-    return NextResponse.json({ error: 'Failed to send emails' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
   }
 }
