@@ -125,6 +125,51 @@ export const emailTemplateHtml = `<!DOCTYPE html>
             </td>
           </tr>
 
+          <!-- Cache Tip -->
+          <tr>
+            <td style="padding:10px 28px 0 28px;">
+              <div style="padding:16px 18px; background-color:#0d1a0d; border:1px solid #2e7d32; border-radius:10px;">
+                <h2 style="margin:0 0 10px 0; font-size:17px; color:#66bb6a;">
+                  🔄 Still Seeing Issues on the Website?
+                </h2>
+
+                <p style="margin:0 0 10px 0; font-size:15px; line-height:1.7; color:#dcdcdc;">
+                  If the registration page is not loading correctly or you are seeing outdated content,
+                  please <strong style="color:#ffffff;">clear your browser cache</strong> and try again.
+                </p>
+
+                <!-- Desktop -->
+                <p style="margin:0 0 4px 0; font-size:14px; color:#ffffff;"><strong>💻 On Desktop / Laptop:</strong></p>
+                <p style="margin:0 0 14px 0; font-size:14px; line-height:1.7; color:#aaaaaa;">
+                  Press <strong style="color:#ffd900;">Ctrl + Shift + Delete</strong> (Windows) or
+                  <strong style="color:#ffd900;">Cmd + Shift + Delete</strong> (Mac) in your browser,
+                  select <em>"All time"</em> as the time range, check <em>"Cached images and files"</em>, and click <em>"Clear data"</em>.
+                </p>
+
+                <!-- Android -->
+                <p style="margin:0 0 4px 0; font-size:14px; color:#ffffff;"><strong>📱 On Android (Chrome):</strong></p>
+                <p style="margin:0 0 14px 0; font-size:14px; line-height:1.7; color:#aaaaaa;">
+                  Open Chrome → tap the <strong style="color:#ffd900;">three-dot menu (⋮)</strong> →
+                  go to <em>Settings</em> → <em>Privacy and security</em> → <em>Clear browsing data</em> →
+                  select <em>"All time"</em>, check <em>"Cached images and files"</em>, and tap <em>"Clear data"</em>.
+                </p>
+
+                <!-- iPhone -->
+                <p style="margin:0 0 4px 0; font-size:14px; color:#ffffff;"><strong>🍎 On iPhone / iPad (Safari):</strong></p>
+                <p style="margin:0 0 14px 0; font-size:14px; line-height:1.7; color:#aaaaaa;">
+                  Open <strong style="color:#ffd900;">Settings</strong> → scroll down to <em>Apps</em> → tap <em>Safari</em> →
+                  tap <em>"Clear History and Website Data"</em> and confirm.
+                  <br />Alternatively, in Safari tap the <strong style="color:#ffd900;">address bar</strong>,
+                  visit <em>Settings &gt; Safari &gt; Advanced &gt; Website Data</em> and remove data for <em>vibeforge-1-0.tech</em>.
+                </p>
+
+                <p style="margin:0; font-size:14px; line-height:1.7; color:#aaaaaa;">
+                  After clearing, revisit <a href="https://vibeforge-1-0.tech/register" target="_blank" style="color:#ffd900;">vibeforge-1-0.tech/register</a> and complete your registration.
+                </p>
+              </div>
+            </td>
+          </tr>
+
           <!-- Support -->
           <tr>
             <td style="padding:24px 28px;">
@@ -134,8 +179,8 @@ export const emailTemplateHtml = `<!DOCTYPE html>
                 </h2>
 
                 <p style="margin:0 0 14px 0; font-size:15px; line-height:1.7; color:#ffffff;">
-                  If you are facing any issues during payment or experiencing any technical problems,
-                  please submit your issue through our support page.
+                  If you are still facing any issues during payment or experiencing any technical problems
+                  even after clearing your cache, please submit your issue through our support page.
                 </p>
 
                 <p style="margin:0 0 14px 0; font-size:15px; line-height:1.7; color:#dcdcdc;">
