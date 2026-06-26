@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import * as xlsx from "xlsx";
-import { UploadCloud, FileSpreadsheet, Play, Copy, CheckCircle2, AlertCircle, Send, Loader2, X } from "lucide-react";
+import { UploadCloud, FileSpreadsheet, Play, Copy, CheckCircle2, AlertCircle, Send, Loader2, X, Download } from "lucide-react";
 import { emailTemplateHtml } from "@/lib/emailTemplate";
 
 type Participant = {
@@ -35,6 +35,18 @@ export default function Home() {
   const [sentCount, setSentCount] = useState(0);
   const [totalToSend, setTotalToSend] = useState(0);
   const [sendSummary, setSendSummary] = useState<{sent: number, total: number} | null>(null);
+  const [filter, setFilter] = useState<"all" | "adamas" | "external">("all");
+
+  const filteredResults = React.useMemo(() => {
+    if (!results) return null;
+    return results.filter((r) => {
+      if (filter === "all") return true;
+      const isAdamas = String(r.College || "").toLowerCase().includes("adamas");
+      if (filter === "adamas") return isAdamas;
+      if (filter === "external") return !isAdamas;
+      return true;
+    });
+  }, [results, filter]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "participants" | "registrations") => {
     const file = e.target.files?.[0];
@@ -106,15 +118,23 @@ export default function Home() {
   };
 
   const handleCopyEmails = () => {
-    if (!results) return;
-    const emails = results.map((r) => r.Email).filter(Boolean).join(", ");
+    if (!filteredResults) return;
+    const emails = filteredResults.map((r) => r.Email).filter(Boolean).join(", ");
     navigator.clipboard.writeText(emails);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleExport = () => {
+    if (!filteredResults || filteredResults.length === 0) return;
+    const worksheet = xlsx.utils.json_to_sheet(filteredResults);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, "Filtered Data");
+    xlsx.writeFile(workbook, "filtered_participants.xlsx");
+  };
+
   const handleSendEmails = async () => {
-    if (!results || results.length === 0) return;
+    if (!filteredResults || filteredResults.length === 0) return;
 
     setIsSendingMail(true);
     setError(null);
@@ -122,7 +142,7 @@ export default function Home() {
     setSendSummary(null);
     setMailSent(false);
 
-    const emails = results.map((r) => r.Email).filter(Boolean);
+    const emails = filteredResults.map((r) => r.Email).filter(Boolean);
     setTotalToSend(emails.length);
 
     try {
@@ -266,19 +286,48 @@ export default function Home() {
         </div>
 
         {/* Results Section */}
-        {results && (
+        {results && filteredResults && (
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 space-y-6">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-6 rounded-3xl bg-slate-900/50 border border-slate-800 backdrop-blur-sm">
-              <div>
+            <div className="flex flex-col xl:flex-row items-center justify-between gap-4 p-6 rounded-3xl bg-slate-900/50 border border-slate-800 backdrop-blur-sm">
+              <div className="flex-shrink-0">
                 <h2 className="text-2xl font-bold">Analysis Complete</h2>
                 <p className="text-slate-400">
-                  Found <span className="text-indigo-400 font-bold text-xl">{results.length}</span> participants who haven&apos;t registered.
+                  Found <span className="text-indigo-400 font-bold text-xl">{filteredResults.length}</span> participants who haven&apos;t registered.
                 </p>
               </div>
-              <div className="flex gap-3">
+
+              <div className="flex bg-slate-800/50 p-1 rounded-xl overflow-x-auto max-w-full">
+                <button
+                  onClick={() => setFilter("all")}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${filter === "all" ? "bg-slate-700 text-white shadow-sm" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"}`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setFilter("adamas")}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${filter === "adamas" ? "bg-slate-700 text-white shadow-sm" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"}`}
+                >
+                  Adamas
+                </button>
+                <button
+                  onClick={() => setFilter("external")}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${filter === "external" ? "bg-slate-700 text-white shadow-sm" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"}`}
+                >
+                  External
+                </button>
+              </div>
+
+              <div className="flex gap-3 flex-wrap justify-end">
+                <button
+                  onClick={handleExport}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30"
+                >
+                  <Download className="w-5 h-5" />
+                  Export
+                </button>
                 <button
                   onClick={() => setShowPreview(true)}
-                  disabled={isSendingMail || results.length === 0}
+                  disabled={isSendingMail || filteredResults.length === 0}
                   className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                     mailSent
                       ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50'
@@ -317,7 +366,7 @@ export default function Home() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/50">
-                    {results.map((r, i) => (
+                    {filteredResults.map((r, i) => (
                       <tr key={i} className="hover:bg-slate-800/30 transition-colors">
                         <td className="p-4 font-medium text-slate-200">{r.Name || "-"}</td>
                         <td className="p-4 text-slate-400">{r.Email || "-"}</td>
@@ -328,10 +377,10 @@ export default function Home() {
                         <td className="p-4 text-slate-500 font-mono text-xs">{r.UID || "-"}</td>
                       </tr>
                     ))}
-                    {results.length === 0 && (
+                    {filteredResults.length === 0 && (
                       <tr>
                         <td colSpan={7} className="p-8 text-center text-slate-500">
-                          Great job! All participants have registered.
+                          {results.length === 0 ? "Great job! All participants have registered." : "No participants match the selected filter."}
                         </td>
                       </tr>
                     )}
