@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
+export const maxDuration = 60; // Max allowed for Vercel Hobby plan
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   try {
     const { recipients } = await request.json();
@@ -16,13 +19,16 @@ export async function POST(request: Request) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // Create a transporter using Gmail settings
+          // Create a transporter using Gmail settings with pooling to reuse connections
           const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
               user: process.env.EMAIL_USER,
               pass: process.env.EMAIL_PASS,
             },
+            pool: true,
+            maxConnections: 5,
+            maxMessages: 100,
           });
 
           let sentCount = 0;
@@ -56,9 +62,6 @@ export async function POST(request: Request) {
               });
               controller.enqueue(encoder.encode(`data: ${errorData}\n\n`));
             }
-            
-            // Wait 1.5 seconds before sending the next email to avoid Gmail rate limits
-            await new Promise(resolve => setTimeout(resolve, 1500));
           }
 
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, sentCount, total: recipients.length })}\n\n`));
