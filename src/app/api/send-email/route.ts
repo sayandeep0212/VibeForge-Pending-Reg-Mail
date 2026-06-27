@@ -56,6 +56,9 @@ export async function POST(request: Request) {
               });
               controller.enqueue(encoder.encode(`data: ${errorData}\n\n`));
             }
+            
+            // Wait 1.5 seconds before sending the next email to avoid Gmail rate limits
+            await new Promise(resolve => setTimeout(resolve, 1500));
           }
 
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, sentCount, total: recipients.length })}\n\n`));
